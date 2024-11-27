@@ -1,23 +1,18 @@
-# Use an official Node.js runtime as a parent image
+# Dockerfile for the backend
 FROM node:18
 
-# Set the working directory inside the container
 WORKDIR /app
 
-# Copy package.json and package-lock.json into the container
-COPY ./package*.json ./
+# Copy package.json and package-lock.json from the server folder
+COPY package*.json ./
 
-# Install any dependencies defined in package.json
+# Install dependencies
 RUN npm install
 
-# Copy the rest of your application code into the container
-COPY ./ ./
+# Copy all server-related files into the container
+COPY . ./
 
-# Expose the port that the server will run on
 EXPOSE 5050
 
-# Define the command to run the app using 'node server.mjs'
+# Start the Express server
 CMD ["node", "server.mjs"]
-
-
-

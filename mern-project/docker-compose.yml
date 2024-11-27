@@ -1,49 +1,41 @@
 version: '3.8'
 
 services:
+  backend:
+    build:
+      context: ./  # Set the build context to the root of the project
+      dockerfile: ./server/Dockerfile  # Path to the backend Dockerfile
+    container_name: backend
+    ports:
+      - "5050:5050"
+    environment:
+      - MONGO_URI=mongodb://mongo:27017/mern-app
+    depends_on:
+      - mongo
+    networks:
+      - mern-network
+    restart: always
+
   mongo:
     image: mongo:latest
     container_name: mongo
-    environment:
-      - MONGO_INITDB_ROOT_USERNAME=root
-      - MONGO_INITDB_ROOT_PASSWORD=example
-    volumes:
-      - mongo-data:/data/db
     ports:
       - "27017:27017"
     networks:
       - mern-network
-
-  backend:
-    build: ./server
-    container_name: backend
-    environment:
-      - NODE_ENV=development
-      - MONGO_URI=mongodb://root:example@mongo:27017
-    depends_on:
-      - mongo
-    volumes:
-      - ./server:/usr/src/app
-    ports:
-      - "5000:5000"
-    networks:
-      - mern-network
+    restart: always
 
   frontend:
-    build: ./client
+    build:
+      context: ./  # Set the context to the frontend folder
+      dockerfile: ./client/Dockerfile  # Path to the frontend Dockerfile
     container_name: frontend
     ports:
       - "3000:3000"
-    volumes:
-      - ./client:/usr/src/app
     networks:
       - mern-network
-
-volumes:
-  mongo-data:
+    restart: always
 
 networks:
   mern-network:
     driver: bridge
-
-

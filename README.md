@@ -1,5 +1,5 @@
-DEPLOYING A MERN STACK
-2N TECH DEVOPS ENGİNEER TASK
+MERN Stack Deployment on AWS EKS
+
 
 
 +-------------------+            +--------------------+            +----------------------------------------+
@@ -52,60 +52,100 @@ Monitor with Prometheus and Grafana for real-time metrics.
 **a. Backend (Node.js/Express) Dockerfile**
 
 
-FROM node:16-alpine
+# Dockerfile for the backend
+FROM node:18
+
 WORKDIR /app
-COPY package.json package-lock.json ./
+
+# Copy package.json and package-lock.json from the server folder
+COPY ./server/package*.json ./
+
+# Install dependencies
 RUN npm install
-COPY . .
-EXPOSE 5000
-CMD ["npm", "start"]
+
+# Copy all server-related files into the container
+COPY ./server/ ./
+
+EXPOSE 5050
+
+# Start the Express server
+CMD ["node", "server.mjs"]
 
 
 **b. Frontend (React) Dockerfile**
 
 
-FROM node:16-alpine AS build
+# Use an official Node.js runtime as a parent image
+FROM node:18
+
+# Set the working directory inside the container
 WORKDIR /app
-COPY package.json package-lock.json ./
+
+# Copy package.json and package-lock.json into the container
+COPY ./client/package*.json ./
+
+# Install dependencies
 RUN npm install
-COPY . .
-RUN npm run build
-FROM nginx:alpine
-COPY --from=build /app/build /usr/share/nginx/html
-EXPOSE 80
+
+# Copy the rest of your application code into the container
+COPY ./client/ ./
+
+# Expose the port that the frontend will run on
+EXPOSE 3000
+
+# Command to run the React app
+CMD ["npm", "start"]
+
 ```
 
-**c. MongoDB Docker (optional for local/dev)**
-FROM mongo:latest
-EXPOSE 27017
+Also I use official mongo image for the database , cretaed docker images for server and client and push it for using the images on aws
 
 I created a simple docker-compose file to test.
 
 docker-compose.yml
 
-version: '3'
+version: '3.8'
+
 services:
   backend:
-    image: ./server
+    build:
+      context: ./  # Set the build context to the root of the project
+      dockerfile: ./server/Dockerfile  # Path to the backend Dockerfile
+    container_name: backend
     ports:
-      - "5000:5000"
+      - "5050:5050"
     environment:
-      - MONGO_URI=mongodb://mongo:27017/mern
+      - MONGO_URI=mongodb://mongo:27017/mern-app
     depends_on:
       - mongo
-  frontend:
-    image: ./client
-    ports:
-      - "80:80"
+    networks:
+      - mern-network
+    restart: always
+
   mongo:
     image: mongo:latest
-    volumes:
-      - mongo-data:/data/db
-    environment:
-      - MONGO_INITDB_ROOT_USERNAME=admin
-      - MONGO_INITDB_ROOT_PASSWORD=example
-volumes:
-  mongo-data:
+    container_name: mongo
+    ports:
+      - "27017:27017"
+    networks:
+      - mern-network
+    restart: always
+
+  frontend:
+    build:
+      context: ./  # Set the context to the frontend folder
+      dockerfile: ./client/Dockerfile  # Path to the frontend Dockerfile
+    container_name: frontend
+    ports:
+      - "3000:3000"
+    networks:
+      - mern-network
+    restart: always
+
+networks:
+  mern-network:
+    driver: bridge
+
 
 
 ***Provision Infrastructure with Terraform***
@@ -660,3 +700,5 @@ pipeline {
 
 
 # mern-project
+The troubles and troubleshooting
+
