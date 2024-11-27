@@ -1,0 +1,103 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Jenkins Server Setup with S3 and EKS Access
+
+Parameters:
+  KeyName:
+    Type: String
+    Description: Name of an existing EC2 KeyPair to enable SSH access.
+
+Resources:
+  # Security Group for Jenkins
+  JenkinsSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Allow access to Jenkins
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 8080
+          ToPort: 8080
+          CidrIp: 0.0.0.0/0
+
+  # IAM Role for EC2
+  JenkinsEC2Role:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - ec2.amazonaws.com
+            Action:
+              - sts:AssumeRole
+
+  # IAM Policy for S3 and EKS Access
+  S3EksAccessPolicy:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: S3EksAccessPolicy
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Action:
+              - s3:ListBucket
+              - s3:GetObject
+              - s3:PutObject
+            Resource:
+              - "arn:aws:s3:::your-bucket-name"
+              - "arn:aws:s3:::your-bucket-name/*"
+          - Effect: Allow
+            Action:
+              - eks:DescribeCluster
+            Resource:
+              - "arn:aws:eks:your-region:your-account-id:cluster/your-cluster-name"
+      Roles:
+        - !Ref JenkinsEC2Role
+
+  # IAM Instance Profile
+  JenkinsInstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      Roles:
+        - !Ref JenkinsEC2Role
+
+  # Jenkins EC2 Instance
+  JenkinsInstance:
+    Type: AWS::EC2::Instance
+    Properties:
+      InstanceType: t2.medium
+      KeyName: !Ref KeyName
+      ImageId: ami-0d5d9d301c853a04a # Ubuntu 20.04 (Update with your region's AMI ID)
+      SecurityGroupIds:
+        - !Ref JenkinsSecurityGroup
+      IamInstanceProfile: !Ref JenkinsInstanceProfile
+      UserData:
+        Fn::Base64: |
+          #!/bin/bash
+          apt-get update
+          apt-get install -y openjdk-11-jdk curl
+          curl -fsSL https://pkg.jenkins.io/debian-stable/jenkins.io.key | tee \
+              /usr/share/keyrings/jenkins-keyring.asc > /dev/null
+          echo deb [signed-by=/usr/share/keyrings/jenkins-keyring.asc] \
+              https://pkg.jenkins.io/debian-stable binary/ | tee \
+              /etc/apt/sources.list.d/jenkins.list > /dev/null
+          apt-get update
+          apt-get install -y jenkins
+          systemctl start jenkins
+          systemctl enable jenkins
+          # Install Docker
+          apt-get install -y docker.io
+          usermod -aG docker jenkins
+          systemctl restart jenkins
+
+Outputs:
+  JenkinsURL:
+    Description: URL to access Jenkins
+    Value: !Sub "http://${JenkinsInstance.PublicIp}:8080"
+

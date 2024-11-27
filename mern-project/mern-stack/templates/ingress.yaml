@@ -1,0 +1,29 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: mern-app-ingress
+  annotations:
+    kubernetes.io/ingress.class: "alb"  # Specifies the ALB ingress controller
+    alb.ingress.kubernetes.io/scheme: internet-facing  # Makes the ALB publicly accessible
+    alb.ingress.kubernetes.io/target-type: ip  # Targets pods directly by their IP
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}]'  # Configures ALB to listen on port 80
+    alb.ingress.kubernetes.io/group.name: "mern-app-group"  # Groups multiple Ingress resources
+spec:
+  rules:
+    - host:
+      http:
+        paths:
+          - path: /api
+            pathType: Prefix
+            backend:
+              service:
+                name: backend-service
+                port:
+                  number: 5000
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: frontend-service
+                port:
+                  number: 80
